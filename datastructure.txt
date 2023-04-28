@@ -1,0 +1,42 @@
+so our data structure begins with a D-parse
+
+[VoiceP
+    [Voice'
+        [Voice[vo]]
+        [vP
+            [v'
+                [v[]]
+                [VP
+                    [V[hello]]
+                ]
+            ]
+        ]
+    ]
+]
+
+then we record movements, like V to V
+0>0>1>1>0:0>0>0>1>0>0;adjunct
+and an insertion could be ;insert
+
+anyway so an initial tree with a series of transformations thats what we need
+
+
+
+|//|{tree: [A[B][C]]}{transformations:0>0>1>1>0:0>0>0>1>0>0;adjunct,}|//|
+
+
+
+
+[TP[T'[T[-ed]][VoiceP[Voice'[Voice[v[V[kick]][v[verbalization]]][Voice[AGENT]]][vP[v'[VP[V'[DP[D'[D[the]][NP[N'[N[dog]]]]]]]]]]]]][DP[D'[D[He]]]]]
+
+
+
+[TP[T'[T][VP[DP[Subject]][V'[V][DP[Object]]]]]]<t-"0 > 0 > 1 > 1 > 0","0 > 0 > 0 > 0"-><t-"0 > 0 > 1 > 0","0 > 1"->
+
+we should change the move function to always drop leftmost
+
+
+[TP[T'[T][vP[DP[D'[D]]][v'[v][VP[V'[V][DP[D'[D]]]]]]]]]<t-"0 > 0 > 1 > 0","0 > 0"-><c-[  8,  7,  6,  4,  0,  -1,  8]-><t-"0 > 1 > 1 > 0 > 1 > 0 > 0","0 > 1 > 1 > 0 > 0"-><t-"0 > 1 > 1 > 0 > 0","0 > 1 > 1 > 0 > 0 > 0"->
+
+\\getting there my friendS!
+

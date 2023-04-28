@@ -1,0 +1,784 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/jquery-ui.min.css" />
+   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
+   <script src="https://raw.githubusercontent.com/ilikenwf/nestedSortable/master/jquery.mjs.nestedSortable.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+
+
+
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Tree Builder</title>
+   
+   <style>
+   
+   .tree {
+    font: 14px/1.4 sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .tree .node-container {
+    display: inline-block;
+    position: relative;
+    margin: 3px;
+    padding: 10px;
+    background: #fff;
+    border-radius: 5px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    transition: transform 0.2s ease-in-out;
+    cursor: pointer;
+  }
+  
+  .tree .node-container:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .tree .node-container.highlighted {
+    border: 2px dashed #141414;
+    box-shadow: none;
+  }
+  
+  .node-container.minimized .node-container {
+    display: none;
+  }
+  
+  .tree .node-text {
+    display: inline-block;
+    margin-right: 5px;
+    font-weight: bold;
+    vertical-align: top;
+  }
+  
+  .tree .drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 2px solid #ccc;
+    border-radius: 100%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    cursor: move;
+    transition: border-color 0.2s ease-in-out;
+  }
+  
+  .tree .drag-handle:hover {
+    border-color: #000000;
+  }
+  
+  .tree .add-branch {
+    margin-top: 5px;
+  }
+  
+  .tree .child-connector {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    height: 20px;
+    transform: translateX(-50%);
+  }
+  
+  .tree .node-container.left .child-connector {
+    transform: translate(-100%, -50%);
+  }
+  
+  .tree .node-container.right .child-connector {
+    transform: translate(0, -50%);
+  }
+  
+  .highlight-drop {
+  
+    transition: box-shadow 0.3s ease-in-out;
+    border: 5px dashed #ff4400;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2), 0 0 0 4px #ff0000;
+  }
+  .tree .node-container.selected {
+  border: 2px solid #002e4c;
+  box-shadow: 0 2px 10px rgba(238, 255, 2, 0.2), 0 0 0 4px #000000;
+}
+
+.tree .node-container.ccommanded {
+  border: 5px dotted #3cff00;
+}
+
+  
+  </style>
+
+  
+  
+  
+  
+</head>
+<body>
+   <h1>Tree Builder</h1>
+   <div class="tree">
+       <ul id="tree-root">
+       </ul>
+   </div>
+   <button id="add-node">New Root</button>
+   <button id="add-phrase">New Root Phrase</button>
+   <button id="output-tree">Output Tree</button>
+   <input type="text" id="input-bracketed-string" placeholder="Enter Bracketed String" />
+<button id="recreate-tree">Recreate Tree</button>
+<div id="popup" style="display:none">
+  <input type="text" id="inputBox">
+  <button id="submitButton">Submit</button>
+</div>
+<button onclick="showPopup()">Show Popup</button>
+
+
+
+  
+   <script>
+    function selectNode(nodeToSelect){
+      
+      const nodes = document.querySelectorAll('.node-container');
+      nodes.forEach(function(node) {
+        node.classList.remove('selected');
+        node.classList.remove('ccommanded');
+        node.classList.remove('highlight-drop');
+      })
+
+      nodeToSelect.classList.add('selected');
+      //get the siblings here, and store them as a list siblingNodes
+      const parent = nodeToSelect.parentNode;
+      const siblingNodes = Array.from(parent.querySelectorAll('.node-container'));
+
+      siblingNodes.forEach(siblingNode => {
+        siblingNode.classList.add('ccommanded');
+      });
+  }
+  function getNodeIndices(node) {
+  var indices = [];
+
+  // Get the indices of the node's ancestors
+  $(node).parentsUntil('.tree-root').addBack().each(function() {
+    var index = $(this).parent().children('.node-container').index($(this));
+    indices.unshift(index); // Add the index to the beginning of the array
+  });
+  var filteredArr = indices.filter(function(value) {
+  return value !== -1;
+}).reverse();
+  const stringArr = filteredArr.join(' > ');
+
+  return stringArr;
+}
+
+
+
+    function moveBeforeSameClass(node) {
+      const parent = node.parentNode;
+      const children = Array.from(parent.querySelectorAll('.node-container'));
+      const index = children.indexOf(node);
+      for (let i = 0; i < index; i++) {
+        if (children[i].classList.contains("node-container")) {
+          parent.insertBefore(node, children[i]);
+          break;
+        }
+      }
+    }
+
+
+    document.getElementById("submitButton").addEventListener("click", function() {
+  var inputValue = document.getElementById("inputBox").value;
+  // Do something with the input value
+});
+document.getElementById("submitButton").addEventListener("click", function() {
+  var inputValue = document.getElementById("inputBox").value;
+  // Do something with the input value
+  document.getElementById("popup").style.display = "none";
+});
+
+    let currentNodeId = 1;
+    const treeData = {};
+
+    function showPopup() {
+  document.getElementById("popup").style.display = "block";
+}
+
+
+function recreateTreeFromBracketedString(inputString) {
+  const stack = [];
+
+  for (let i = 0; i < inputString.length; i++) {
+    const char = inputString[i];
+
+    if (char === '[') {
+      const nodeValueStart = i + 1;
+      let nodeValueEnd = inputString.indexOf('[', nodeValueStart);
+
+      if (nodeValueEnd === -1 || nodeValueEnd > inputString.indexOf(']', nodeValueStart)) {
+        nodeValueEnd = inputString.indexOf(']', nodeValueStart);
+      }
+
+      if (nodeValueEnd === -1) {
+        throw new Error('Invalid input string: missing closing bracket');
+      }
+
+      const nodeValue = inputString.slice(nodeValueStart, nodeValueEnd);
+      console.log(nodeValue);
+      const newNode = { value: nodeValue, children: [] };
+      console.log(newNode);
+      stack.push(newNode);
+
+      i = nodeValueEnd - 1;
+    } else if (char === ']') {
+      const poppedNode = stack.pop();
+
+      if (stack.length === 0) {
+        return poppedNode;
+      }
+
+      const parentNode = stack[stack.length - 1];
+      parentNode.children.push(poppedNode);
+    }
+  }
+
+  if (stack.length !== 0) {
+    throw new Error('Invalid input string: unmatched brackets');
+  }
+  return null;
+}
+
+// Example usage:
+
+
+// Example usage:
+const inputString = '[X[A][B][C]]';
+const root = recreateTreeFromBracketedString(inputString);
+console.log(JSON.stringify(root, null, 2));
+
+
+   function reverseChildren(node) {
+  const childNodesArray = Array.from(node.querySelectorAll('.node-container'));
+  childNodesArray.reverse().forEach(childNode => {
+    node.removeChild(childNode);
+    node.appendChild(childNode);
+  });
+}
+           function createDeleteButton(li) {
+  const deleteButton = document.createElement('button');
+  deleteButton.className = 'delete-node';
+  deleteButton.textContent = 'ø';
+  deleteButton.onclick = function() {
+    li.remove();
+  };
+  li.appendChild(deleteButton);
+}
+function getNodeIndex(node) {
+  return $(node).parent().children('.node-container').index(node);
+}
+
+function getNodePath(node) {
+  const path = [];
+  let currentNode = node;
+
+  while (currentNode.length > 0) {
+    path.unshift(getNodeIndex(currentNode));
+    currentNode = currentNode.parent().closest('.node-container');
+  }
+
+  return path.join(' > ');
+}
+function createNode(text = 'X') {
+  const container = document.createElement('div'); // create container element
+  container.className = 'node-container'; // set container class
+  const nodeId = currentNodeId++;
+  container.setAttribute('data-node-id', nodeId);
+ 
+$(container).draggable({
+  opacity: 0.7,
+  revert: true,
+  revertDuration: 0,
+  handle: '.drag-handle',
+  cancel: '.node-text',
+  start: function (event, ui) {
+    // Save initial position in tree structure
+    ui.helper.data('startPosition', getNodePath(ui.helper));
+  },
+  stop: function (event, ui) {
+    // Get initial position in tree structure
+    var startPosition = ui.helper.data('startPosition');
+
+    // Get final position in tree structure
+    var stopPosition = getNodePath(ui.helper);
+
+    // Output initial and final positions
+    console.log('Start position:', startPosition);
+    console.log('Stop position:', stopPosition);
+    startPosition = JSON.stringify(startPosition, null, 0);
+    stopPosition = JSON.stringify(stopPosition, null, 0);
+    const currentOutputbox = document.getElementById('input-bracketed-string').value;
+    // this allows us to keep a log of transformations the tree undergoes.
+    document.getElementById('input-bracketed-string').value = currentOutputbox+ "<t-" + startPosition + "," + stopPosition + "->";
+  }
+});
+
+$(container).droppable({
+  accept: '.node-container', // target container element
+  drop: function (event, ui) {
+  var $siblings = $(this).children('.node-container');
+  if ($siblings.length > 0) {
+    ui.draggable.insertBefore($siblings.first());
+  } else {
+    $(this).append(ui.draggable);
+  }
+  const nodesToDeselect = document.querySelectorAll('.node-container');
+      nodesToDeselect.forEach(function(eachNode) {
+        eachNode.classList.remove('highlight-drop');
+      })
+},
+
+  over: function (event, ui) {
+    const nodesToDeselect = document.querySelectorAll('.node-container');
+      nodesToDeselect.forEach(function(eachNode) {
+        eachNode.classList.remove('highlight-drop');
+      })
+    $(this).addClass('highlight-drop');
+     // add class when hovered over with droppable item
+  },
+  out: function (event, ui) {
+    $(this).removeClass('highlight-drop'); // remove class when not being hovered over with droppable item
+  }
+});
+
+  const nodeHandle = document.createElement('div');
+  nodeHandle.className = 'drag-handle';
+  
+  container.appendChild(nodeHandle);
+  nodeHandle.addEventListener('click', function() {
+  // Remove "selected" class from all nodes
+  const nodes = document.querySelectorAll('.node-container');
+  nodes.forEach(function(node) {
+    node.classList.remove('selected');
+    node.classList.remove('ccommanded');
+    node.classList.remove('highlight-drop');
+    
+
+  treeData[nodeId] = {
+    id: nodeId,
+    text: text,
+    children: [],
+  };
+  });
+  
+
+
+  
+
+  // Add "selected" class to clicked node
+  container.classList.add('selected');
+  
+      //get the siblings here, and store them as a list siblingNodes
+  const parent = container.parentNode;
+  const siblingNodes = Array.from(parent.querySelectorAll('.node-container'));
+
+      siblingNodes.forEach(siblingNode => {
+        siblingNode.classList.add('ccommanded');
+      });
+});
+
+const nodeText = document.createElement('div');
+  nodeText.textContent = text;
+  nodeText.contentEditable = true;
+  nodeText.className = 'node-text';
+  container.appendChild(nodeText);
+
+
+  const contextMenuButton = document.createElement('button');
+  contextMenuButton.className = 'context-menu-button';
+  contextMenuButton.textContent = '...';
+  contextMenuButton.onclick = function () {
+    const contextMenu = createContextMenu(container);
+    container.appendChild(contextMenu);
+  };
+  container.appendChild(contextMenuButton);
+
+  const minimizeButton = document.createElement('button');
+  minimizeButton.className = 'minimize-button';
+  minimizeButton.textContent = '-';
+  minimizeButton.onclick = function() {
+    const nodeToMinimize = container; // Get the parent node of the button
+
+    // Toggle the "minimized" class on the parent node
+    container.classList.toggle('minimized');
+
+    // Toggle the text content of the button between "-" and "+"
+    if (this.textContent === '-') {
+     this.textContent = '+';
+    } else {
+      this.textContent = '-';
+    }
+
+  };
+  
+  container.appendChild(minimizeButton);
+
+  const nodeChildren = document.createElement('div'); // create children container
+  nodeChildren.className = 'node-children'; // set children container class
+  container.appendChild(nodeChildren);
+
+  // use Sortable plugin to make child nodes sortable
+  $(nodeChildren).sortable({
+  handle: '.drag-handle',
+  connectWith: '.node-children',
+  placeholder: 'sortable-placeholder',
+  forcePlaceholderSize: true,
+  dropOnEmpty: true,
+  update: function (event, ui) {
+    const parentNodeId = parseInt(ui.item.parent().closest('.node-container').attr('data-node-id'));
+    const nodeId = parseInt(ui.item.attr('data-node-id'));
+    const oldParentNodeId = getParentNodeId(treeData, nodeId);
+    const newIndex = ui.item.index();
+
+    if (oldParentNodeId !== parentNodeId) {
+      // Remove the node from the old parent
+      treeData[oldParentNodeId].children = treeData[oldParentNodeId].children.filter(childId => childId !== nodeId);
+
+      // Add the node to the new parent at the new index
+      treeData[parentNodeId].children.splice(newIndex, 0, nodeId);
+      console.log(JSON.stringify(treeData, null, 2));
+
+    } else {
+      // Move the node within the same parent
+      const oldIndex = treeData[parentNodeId].children.indexOf(nodeId);
+      treeData[parentNodeId].children.splice(oldIndex, 1);
+      treeData[parentNodeId].children.splice(newIndex, 0, nodeId);
+      console.log(JSON.stringify(treeData, null, 2));
+
+    }
+  },
+});
+
+  return container;
+}
+
+function getParentNodeId(tree, nodeId) {
+  for (const key in tree) {
+    if (tree.hasOwnProperty(key)) {
+      if (tree[key].children.includes(nodeId)) {
+        return parseInt(key);
+      } else {
+        const result = getParentNodeId(tree[key].children, nodeId);
+        if (result !== null) {
+          return result;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function copyNode(node) {
+  const copiedNodePath = getNodePath(node);
+  const nodePath = JSON.stringify(copiedNodePath, null, 2);
+  const currentOutputbox = document.getElementById('input-bracketed-string').value;
+  document.getElementById('input-bracketed-string').value = currentOutputbox + "<c-" + nodePath + "->";
+  console.log(copiedNodePath)
+  
+}
+function addPhrase(name, node){
+
+}
+
+function createContextMenu(node) {
+  // Close currently open context menu
+  if (document.querySelector('.context-menu')) {
+    document.querySelector('.context-menu').remove();
+  }
+
+  const contextMenu = document.createElement('div');
+  contextMenu.className = 'context-menu';
+
+  const addPhraseButton = document.createElement('button');
+  addPhraseButton.className = 'add-phrase';
+  addPhraseButton.textContent = 'Add Phrase';
+  addPhraseButton.id = 'add-phrase'; // add unique identifier
+  addPhraseButton.onclick = function () {
+    const headName = prompt("Enter the name of the new head:");
+    const phraseNode = createNode(headName + 'P');
+    const barNode = createNode(headName + '\'');
+    const childNode = createNode(headName);
+    phraseNode.appendChild(barNode);
+    barNode.appendChild(childNode);
+    node.appendChild(phraseNode);
+    contextMenu.style.display = 'none';
+  };
+  contextMenu.appendChild(addPhraseButton);
+
+  const addBranchButton = document.createElement('button');
+  addBranchButton.className = 'add-branch';
+  addBranchButton.textContent = 'Add Branch';
+  addBranchButton.id = 'add-branch'; // add unique identifier
+  addBranchButton.onclick = function () {
+    node.appendChild(createNode());
+    contextMenu.style.display = 'none';
+  };
+  contextMenu.appendChild(addBranchButton);
+
+  const deleteNodeButton = document.createElement('button');
+  deleteNodeButton.className = 'delete-node';
+  deleteNodeButton.textContent = 'Delete Node';
+  deleteNodeButton.id = 'delete-node'; // add unique identifier
+  deleteNodeButton.onclick = function () {
+    node.remove();
+    contextMenu.style.display = 'none';
+  };
+  contextMenu.appendChild(deleteNodeButton);
+
+  const outputTreeButton = document.createElement('button');
+  outputTreeButton.className = 'output-tree';
+  outputTreeButton.textContent = 'Output Tree';
+  outputTreeButton.id = 'output-tree'; // add unique identifier
+  outputTreeButton.onclick = function () {
+    const outputString = generateBracketedString(node);
+    console.log(outputString);
+    contextMenu.style.display = 'none';
+  };
+  contextMenu.appendChild(outputTreeButton);
+
+  const copyNodeButton = document.createElement('button');
+  copyNodeButton.className = 'copy-node';
+  copyNodeButton.textContent = 'Copy Node';
+  copyNodeButton.id = 'copy-node'; // add unique identifier
+  copyNodeButton.onclick = function () {
+    const newNodeName = node.querySelector('.node-text').textContent.trim();
+    const newNode = createNode(newNodeName);
+    node.parentNode.appendChild(newNode);
+    console.log(getNodeIndices(node));
+  };
+  contextMenu.insertBefore(copyNodeButton, outputTreeButton);
+  const reverseChildrenButton = document.createElement('button');
+  reverseChildrenButton.className = 'reverse-children';
+  reverseChildrenButton.id = 'reverse-children';
+  reverseChildrenButton.textContent = 'Move Left';
+  reverseChildrenButton.onclick = function () {
+    moveBeforeSameClass(node);
+    contextMenu.style.display = 'none';
+  };
+  contextMenu.appendChild(reverseChildrenButton);
+
+  
+
+
+
+
+  // Attach menu to node and position it above node
+  node.appendChild(contextMenu);
+  contextMenu.style.top = -contextMenu.offsetHeight + 'px';
+
+  // Close menu when clicking outside of it
+  let clicksOutside = 0;
+  function closeMenu(event) {
+    if (!contextMenu.contains(event.target)) {
+      clicksOutside++;
+      if (clicksOutside >= 2) {
+        contextMenu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    } else {
+      clicksOutside = 0;
+    }
+  }
+
+  document.addEventListener('click', closeMenu);
+
+  return contextMenu;
+}
+
+document.getElementById('add-node').addEventListener('click', function() {
+  const rootNode = document.getElementById('tree-root');
+  rootNode.appendChild(createNode());
+});
+
+
+document.getElementById('add-phrase').addEventListener('click', function() {
+  const rootNode = document.getElementById('tree-root');
+  const headName = prompt('Enter the name of the new head:');
+  const phraseNode = createNode(headName + 'P');
+  const barNode = createNode(headName + '\'');
+  const headNode = createNode(headName);
+  phraseNode.appendChild(barNode);
+  barNode.appendChild(headNode);
+  rootNode.appendChild(phraseNode);
+});
+
+function createNewStructure(node, parent) {
+  // create a new node with the same value as the input node
+  const justAppended = parent.appendChild(createNode(node.value));
+  // recursively call the createNewStructure function for each child node
+  for (let i = 0; i < node.children.length; i++) {
+    let childNode = node.children[i];
+    createNewStructure(childNode, justAppended);
+  }
+  
+  return;
+}
+
+
+document.getElementById('recreate-tree').addEventListener('click', function() {
+  const inputString = document.getElementById('input-bracketed-string').value;
+  const rootNode = document.getElementById('tree-root');
+
+  rootNode.innerHTML = ''; // clear the existing tree
+
+  const importedTree = recreateTreeFromBracketedString(inputString);
+  createNewStructure(importedTree, rootNode);
+
+});
+
+
+function generateBracketedString(node) {
+  let outputString = '';
+
+  const textContent = node.querySelector('.node-text').textContent.trim();
+
+  const nodeDaughters = [];
+  for (let i = 0; i < node.children.length; i++) {
+    if (node.children[i].classList.contains("node-container")) {
+      nodeDaughters.push(node.children[i]);
+    }
+  }
+
+  if (nodeDaughters && nodeDaughters.length > 0) {
+    outputString += '[' + textContent;
+    nodeDaughters.forEach(function(childNode) {
+      if (childNode.nodeType === 1) {
+        outputString += generateBracketedString(childNode);
+      }
+    });
+    outputString += ']';
+  } else {
+    outputString += '[' + textContent + ']';
+  }
+
+  return outputString;
+}
+
+
+document.getElementById('output-tree').addEventListener('click', function() {
+  const rootNode = document.querySelector('.node-container'); // get the root node
+  const outputString = generateBracketedString(rootNode); // call generateBracketedString recursively
+  // Using plain JavaScript
+  document.getElementById('input-bracketed-string').value = outputString;
+
+  console.log(outputString);
+});
+function handleArrowKeys(event) {
+  const selectedNode = document.querySelector('.node-container.selected');
+  if (!selectedNode) {
+    return;
+  }
+  const keyCode = event.keyCode;
+
+  if (keyCode === 37) { // left arrow
+    if (selectedNode.previousElementSibling) {
+      // if there is a previous sibling, select its last child
+      let node = selectedNode.previousElementSibling;
+      while (node.lastElementChild) {
+        node = node.lastElementChild;
+      }
+      selectNode(node);
+    } else if (selectedNode.parentElement.parentElement) {
+      // if there is no previous sibling, select parent
+      selectNode(selectedNode.parentElement.parentElement);
+    }
+  } else if (keyCode === 38) { // up arrow
+    if (selectedNode.parentElement.parentElement) {
+      selectNode(selectedNode.parentElement.parentElement);
+    }
+  } else if (keyCode === 39) { // right arrow
+    if (selectedNode.querySelector('.node-container') && selectedNode.querySelector('.node-container').firstElementChild) {
+      // if the node has children, select the first child
+      selectNode(selectedNode.querySelector('.node-container').firstElementChild);
+    } else if (selectedNode.nextElementSibling) {
+      // if there is a next sibling, select it
+      selectNode(selectedNode.nextElementSibling);
+    } else {
+      // if there is no next sibling, select the parent's next sibling
+      let node = selectedNode;
+      while (node.parentElement && !node.nextElementSibling) {
+        node = node.parentElement;
+      }
+      if (node.nextElementSibling) {
+        selectNode(node.nextElementSibling);
+      }
+    }
+  } else if (keyCode === 40) { // down arrow
+    if (selectedNode.querySelector('.node-children') && selectedNode.querySelector('.node-children').firstElementChild) {
+      // if the node has children, select the first child
+      selectNode(selectedNode.querySelector('.node-children').firstElementChild);
+    }
+  }
+}
+
+document.addEventListener('keydown', function(event) {
+  const selectedNode = document.querySelector('.node-container.selected');
+  if (!selectedNode) {
+    return;
+  }
+  const addBranchButton = selectedNode.querySelector('#add-branch');
+  const addPhraseButton = selectedNode.querySelector('#add-phrase');
+  const outputTreeButton = document.querySelector('#output-tree');
+  const deleteNodeButton = selectedNode.querySelector('#delete-node');
+  const copyNodeButton = selectedNode.querySelector('#copy-node');
+  const reverseChildrenButton = selectedNode.querySelector('#reverse-children');
+  
+  // Check if arrow key was pressed
+  if (event.key.includes('Arrow')) {
+    handleArrowKeys(event, selectedNode);
+    return;
+  }
+  
+  // Handle other key presses
+  if (event.key === '1' && addBranchButton) {
+    openContextMenu(selectedNode);
+    addBranchButton.click();
+  }
+  if (event.key === '2' && addPhraseButton) {
+    openContextMenu(selectedNode);
+    addPhraseButton.click();
+  }
+  if (event.key === '3' && outputTreeButton) {
+    openContextMenu(selectedNode);
+  }
+  if (event.key === '4' && copyNodeButton) {
+    openContextMenu(selectedNode);
+    copyNodeButton.click();
+  }
+  if (event.key === '5' && reverseChildrenButton){
+    openContextMenu(selectedNode);
+    // remember that reverse children here is a misnomer! it actually moves this ndoe to the left of its sisters
+    reverseChildrenButton.click();
+  }
+  if (event.key === '9' && deleteNodeButton) {
+    openContextMenu(selectedNode);
+    deleteNodeButton.click();
+  }
+});
+
+
+
+function openContextMenu(node) {
+  const contextMenu = createContextMenu(node);
+  node.appendChild(contextMenu);
+  contextMenu.style.top = -contextMenu.offsetHeight + 'px';
+}
+
+
+
+
+   </script>
+</body>
+</html>
