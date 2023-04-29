@@ -319,9 +319,13 @@ $(container).draggable({
     console.log('Stop position:', stopPosition);
     startPosition = JSON.stringify(startPosition, null, 0);
     stopPosition = JSON.stringify(stopPosition, null, 0);
+    startPosition = startPosition.replace(/["]/g, '');
+    stopPosition = stopPosition.replace(/["]/g,'');
     const currentOutputbox = document.getElementById('input-bracketed-string').value;
     // this allows us to keep a log of transformations the tree undergoes.
-    document.getElementById('input-bracketed-string').value = currentOutputbox+ "<t-" + startPosition + "," + stopPosition + "->";
+    var newLogBox = currentOutputbox + "<t-" + startPosition + "," + stopPosition + "->";
+
+    document.getElementById('input-bracketed-string').value = newLogBox;
   }
 });
 
@@ -482,8 +486,10 @@ function getParentNodeId(tree, nodeId) {
 
 function copyNode(node) {
   const copiedNodePath = getNodePath(node);
-  const nodePath = JSON.stringify(copiedNodePath, null, 2);
+  var nodePath = JSON.stringify(copiedNodePath, null, 2);
+  nodePath = nodePath.replace(/\[|\]/g, '');
   const currentOutputbox = document.getElementById('input-bracketed-string').value;
+  var newLogBox = currentOutputbox + "<c-" + nodePath + "->";
   document.getElementById('input-bracketed-string').value = currentOutputbox + "<c-" + nodePath + "->";
   console.log(copiedNodePath)
   
